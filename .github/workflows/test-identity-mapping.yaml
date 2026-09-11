@@ -37,5 +37,6 @@ jobs:
           curl -fsS \
             -H "Accept: application/json" \
             -H "Authorization: Bearer ${DD_ACCESS_TOKEN}" \
-            "https://api.${DD_SITE}/api/v2/current_user"
+            "https://api.${DD_SITE}/api/v2/current_user" \
+            | jq -r '"Authenticated as " + .data.attributes.name'
           echo "Current user profile fetched ✅"
