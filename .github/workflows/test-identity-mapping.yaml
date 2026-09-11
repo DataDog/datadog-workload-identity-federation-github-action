@@ -1,0 +1,42 @@
+name: Test Identity Mapping
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions: {}
+
+jobs:
+  test-identity-mapping:
+    name: Test Identity Mapping
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Get Datadog access token
+        id: wif
+        uses: ./identity
+        with:
+          org_uuid: ${{ secrets.DATADOG_ORG_UUID }}
+          site: datad0g.com
+
+      - name: Fetch the current user profile
+        env:
+          DD_ACCESS_TOKEN: ${{ steps.wif.outputs.access_token }}
+          DD_SITE: datad0g.com
+        run: |
+          set -euo pipefail
+          curl -fsS \
+            -H "Accept: application/json" \
+            -H "Authorization: Bearer ${DD_ACCESS_TOKEN}" \
+            "https://api.${DD_SITE}/api/v2/current_user" \
+            | jq -r '"Authenticated as " + .data.attributes.name'
+          echo "Current user profile fetched ✅"
