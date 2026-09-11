@@ -1,0 +1,31 @@
+name: "Datadog Workload Identity Federation"
+
+description: |
+  This action exchanges the workflow's GitHub OIDC identity token for a
+  Datadog API key using Datadog's native Workload Identity Federation.
+
+  The returned API key is scoped to an intake mapping configured on the
+  target Datadog organization and is suitable for sending telemetry
+  (logs, metrics, etc.) to Datadog.
+
+  For API access through an identity mapping (returning a Datadog
+  access token), use the `identity` action located in the `identity/`
+  directory of this repository.
+
+inputs:
+  org_uuid:
+    description: The UUID of the Datadog organization to authenticate to.
+    required: true
+
+  site:
+    description: The site where the Datadog organization is located.
+    default: datadoghq.com
+
+outputs:
+  api_key:
+    description: A Datadog API key scoped to the configured intake mapping.
+    value: ${{ steps.wif.outputs.api_key }}
+
+runs:
+  using: "node24"
+  main: "index.js"

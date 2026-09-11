@@ -1,0 +1,43 @@
+name: Test Intake Mapping
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions: {}
+
+jobs:
+  test-intake-mapping:
+    name: Test Intake Mapping
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Get Datadog API key
+        id: wif
+        uses: ./intake
+        with:
+          org_uuid: ${{ secrets.DATADOG_ORG_UUID }}
+          site: datad0g.com
+
+      - name: Send a test log
+        env:
+          DD_API_KEY: ${{ steps.wif.outputs.api_key }}
+          DD_SITE: datad0g.com
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${DD_API_KEY}" \
+            "https://http-intake.logs.${DD_SITE}/api/v2/logs" \
+            -d '{"ddsource":"github-actions","ddtags":"env:test,source:github-actions","hostname":"github-actions","message":"Hello from datadog-workload-identity-federation-github-action intake mapping test","service":"github-actions-datadog-wif-test"}'
+          echo "Test log sent ✅"
