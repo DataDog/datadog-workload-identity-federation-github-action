@@ -5,6 +5,11 @@ on:
     branches:
       - main
   pull_request:
+  # Scheduled runs are the end-to-end probe: Datadog monitors alert when their
+  # heartbeat log stops arriving. Avoid minute 0, where GitHub delays cron runs.
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
 
 permissions: {}
 
@@ -12,6 +17,7 @@ jobs:
   test-intake-mapping:
     name: Test Intake Mapping
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       id-token: write
       contents: read
@@ -28,16 +34,30 @@ jobs:
           org_uuid: ${{ secrets.DATADOG_ORG_UUID }}
           site: datad0g.com
 
-      - name: Send a test log
+      - name: Send a heartbeat log
         env:
           DD_API_KEY: ${{ steps.wif.outputs.api_key }}
           DD_SITE: datad0g.com
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          curl -fsS -X POST \
+          jq -n \
+            --arg event_name "${EVENT_NAME}" \
+            --arg run_url "${RUN_URL}" \
+            '{
+              ddsource: "github-actions",
+              ddtags: "env:test,source:github-actions,wif_mapping:intake",
+              hostname: "github-actions",
+              service: "github-actions-datadog-wif-test",
+              message: "Intake mapping heartbeat from datadog-workload-identity-federation-github-action",
+              wif_mapping: "intake",
+              github: { event_name: $event_name, run_url: $run_url }
+            }' \
+          | curl -fsS -X POST \
             -H "Accept: application/json" \
             -H "Content-Type: application/json" \
             -H "DD-API-KEY: ${DD_API_KEY}" \
             "https://http-intake.logs.${DD_SITE}/api/v2/logs" \
-            -d '{"ddsource":"github-actions","ddtags":"env:test,source:github-actions","hostname":"github-actions","message":"Hello from datadog-workload-identity-federation-github-action intake mapping test","service":"github-actions-datadog-wif-test"}'
-          echo "Test log sent ✅"
+            --data-binary @-
+          echo "Heartbeat log sent ✅"
