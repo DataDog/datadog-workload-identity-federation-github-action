@@ -1,12 +1,10 @@
 name: Test Intake Mapping
 
+# This workflow is the end-to-end probe: Datadog monitors alert when its
+# heartbeat log stops arriving. The WIF mappings accept only scheduled and
+# manual runs of main, so it has no push or pull_request trigger.
+# Avoid minute 0, where GitHub delays cron runs.
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-  # Scheduled runs are the end-to-end probe: Datadog monitors alert when their
-  # heartbeat log stops arriving. Avoid minute 0, where GitHub delays cron runs.
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
