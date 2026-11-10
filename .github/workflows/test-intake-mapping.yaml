@@ -40,12 +40,13 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
+          # dd.datad0g.com drops 99.9% of logs without a d0g_staging_kept tag.
           jq -n \
             --arg event_name "${EVENT_NAME}" \
             --arg run_url "${RUN_URL}" \
             '{
               ddsource: "github-actions",
-              ddtags: "env:test,source:github-actions,wif_mapping:intake",
+              ddtags: "env:test,source:github-actions,wif_mapping:intake,d0g_staging_kept:sdlc-security",
               hostname: "github-actions",
               service: "github-actions-datadog-wif-test",
               message: "Intake mapping heartbeat from datadog-workload-identity-federation-github-action",
