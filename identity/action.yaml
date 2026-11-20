@@ -22,6 +22,22 @@ inputs:
     description: The site where the Datadog organization is located.
     default: datadoghq.com
 
+  exchange_retries:
+    description: Maximum number of retry attempts for the token exchange request. 0 means no retries.
+    default: "0"
+
+  exchange_retry_interval:
+    description: Initial interval between retries in milliseconds.
+    default: "1000"
+
+  exchange_retry_max_interval:
+    description: Maximum interval between retries in milliseconds (caps exponential backoff).
+    default: "30000"
+
+  exchange_retry_backoff_multiplier:
+    description: Multiplier applied to the interval after each retry (exponential backoff). Must be >= 1.
+    default: "2"
+
 outputs:
   access_token:
     description: A Datadog access token scoped to the configured identity mapping.
