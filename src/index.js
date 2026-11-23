@@ -9,7 +9,13 @@
 const fs = require('fs');
 
 async function fetchJson(url, options = {}) {
-    const response = await fetch(url, options);
+    let response;
+    try {
+        response = await fetch(url, options);
+    } catch (error) {
+        error.networkError = true;
+        throw error;
+    }
 
     if (!response.ok) {
         const errorBody = await response.text();
@@ -36,6 +42,56 @@ async function getOidcToken(actionsUrl, audience, actionsToken) {
 
     console.log('Successfully retrieved GitHub OIDC token.');
     return json.value;
+}
+
+function parseRetryConfig() {
+    const maxRetries = parseInt(process.env.INPUT_EXCHANGE_RETRIES || '0', 10);
+    const initialInterval = parseInt(process.env.INPUT_EXCHANGE_RETRY_INTERVAL || '1000', 10);
+    const maxInterval = parseInt(process.env.INPUT_EXCHANGE_RETRY_MAX_INTERVAL || '30000', 10);
+    const backoffMultiplier = parseFloat(process.env.INPUT_EXCHANGE_RETRY_BACKOFF_MULTIPLIER || '2');
+
+    if (isNaN(maxRetries) || maxRetries < 0) {
+        throw new Error(`Invalid exchange_retries value: '${process.env.INPUT_EXCHANGE_RETRIES}'`);
+    }
+    if (isNaN(initialInterval) || initialInterval < 0) {
+        throw new Error(`Invalid exchange_retry_interval value: '${process.env.INPUT_EXCHANGE_RETRY_INTERVAL}'`);
+    }
+    if (isNaN(maxInterval) || maxInterval < 0) {
+        throw new Error(`Invalid exchange_retry_max_interval value: '${process.env.INPUT_EXCHANGE_RETRY_MAX_INTERVAL}'`);
+    }
+    if (isNaN(backoffMultiplier) || backoffMultiplier < 1) {
+        throw new Error(`Invalid exchange_retry_backoff_multiplier value: '${process.env.INPUT_EXCHANGE_RETRY_BACKOFF_MULTIPLIER}'`);
+    }
+
+    return { maxRetries, initialInterval, maxInterval, backoffMultiplier };
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function exchangeWithRetries(site, exchange, oidcToken, retryConfig) {
+    const { maxRetries, initialInterval, maxInterval, backoffMultiplier } = retryConfig;
+    let interval = initialInterval;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            if (attempt > 0) {
+                console.log(`Retry attempt ${attempt}/${maxRetries} after ${interval}ms...`);
+                await sleep(interval);
+                interval = Math.min(interval * backoffMultiplier, maxInterval);
+            }
+            return await exchangeOidcForCredential(site, exchange, oidcToken);
+        } catch (error) {
+            const retryable = error.networkError || (error.status && (error.status === 429 || error.status >= 500));
+            if (attempt < maxRetries && retryable) {
+                const statusInfo = error.status ? `HTTP ${error.status}` : 'network error';
+                console.log(`::warning::Exchange attempt ${attempt + 1} failed (${statusInfo}): ${error.message}`);
+            } else {
+                throw error;
+            }
+        }
+    }
 }
 
 async function exchangeOidcForCredential(site, exchange, oidcToken) {
@@ -92,10 +148,15 @@ async function run(exchange) {
         const audience = `datadog/${org_uuid}`;
         const oidcToken = await getOidcToken(actionsUrl, audience, actionsToken);
 
+        const retryConfig = parseRetryConfig();
+        if (retryConfig.maxRetries > 0) {
+            console.log(`::debug::Retry config: retries=${retryConfig.maxRetries}, interval=${retryConfig.initialInterval}ms, maxInterval=${retryConfig.maxInterval}ms, backoff=${retryConfig.backoffMultiplier}x`);
+        }
+
         let credential;
 
         try {
-            credential = await exchangeOidcForCredential(site, exchange, oidcToken);
+            credential = await exchangeWithRetries(site, exchange, oidcToken, retryConfig);
         } catch (error) {
             console.log(`::error::Failed to exchange OIDC token for ${exchange.label}: ${error.message}`);
             throw error;
