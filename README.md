@@ -127,7 +127,7 @@ Only the token exchange with Datadog is retried; the GitHub OIDC token request
 is not. For example, to retry up to 3 times (waiting 1s, 2s, then 4s):
 
 ```yaml
-      - uses: DataDog/datadog-workload-identity-federation-github-action/intake@main
+      - uses: DataDog/datadog-workload-identity-federation-github-action/intake@c99aa70b13689969f606ae732c7f9eaaeb44cd70 # v1.1.0
         id: wif
         with:
           org_uuid: <your-org-uuid>
