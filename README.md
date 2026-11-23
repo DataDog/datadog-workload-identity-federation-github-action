@@ -23,10 +23,16 @@ an OIDC token for the workflow.
 1. The action requests a GitHub OIDC token for the audience
    `datadog/<org_uuid>`.
 2. It posts that OIDC token to the Datadog Workload Identity Federation
-   endpoint with an `Authorization: Delegated <oidc_token>` header.
+   endpoint with an `Authorization: Delegated <oidc_token>` header:
+   - `intake`: `https://api.<site>/api/v2/intake-key`
+   - `identity`: `https://api.<site>/api/v2/delegated-token`
 3. Datadog validates the token against the mapping configured on the
    organization and returns the federated credential.
-4. The credential is masked in logs and exposed as a step output.
+4. If retries are enabled (`exchange_retries` > 0), failed exchanges caused by
+   network errors, HTTP `429` or HTTP `5xx` responses are retried with
+   exponential backoff. Other errors (e.g. `4xx`) fail immediately.
+5. The OIDC token and the credential are masked in logs, and the credential is
+   exposed as a step output.
 
 ## Usage
 
@@ -112,6 +118,21 @@ Both actions share the same inputs.
 | --- | --- | --- | --- |
 | `org_uuid` | yes | — | The UUID of the Datadog organization to authenticate to. |
 | `site` | no | `datadoghq.com` | The site where the Datadog organization is located. |
+| `exchange_retries` | no | `0` | Maximum number of retry attempts for the token exchange request. `0` means no retries. |
+| `exchange_retry_interval` | no | `1000` | Initial interval between retries, in milliseconds. |
+| `exchange_retry_max_interval` | no | `30000` | Maximum interval between retries, in milliseconds (caps the exponential backoff). |
+| `exchange_retry_backoff_multiplier` | no | `2` | Multiplier applied to the interval after each retry. Must be `>= 1`. |
+
+Only the token exchange with Datadog is retried; the GitHub OIDC token request
+is not. For example, to retry up to 3 times (waiting 1s, 2s, then 4s):
+
+```yaml
+      - uses: DataDog/datadog-workload-identity-federation-github-action/intake@c99aa70b13689969f606ae732c7f9eaaeb44cd70 # v1.1.0
+        id: wif
+        with:
+          org_uuid: <your-org-uuid>
+          exchange_retries: 3
+```
 
 ## Outputs
 
