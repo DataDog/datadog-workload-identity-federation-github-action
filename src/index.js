@@ -72,7 +72,6 @@ function sleep(ms) {
 
 async function exchangeWithRetries(site, exchange, oidcToken, retryConfig) {
     const { maxRetries, initialInterval, maxInterval, backoffMultiplier } = retryConfig;
-    let lastError;
     let interval = initialInterval;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -84,17 +83,15 @@ async function exchangeWithRetries(site, exchange, oidcToken, retryConfig) {
             }
             return await exchangeOidcForCredential(site, exchange, oidcToken);
         } catch (error) {
-            lastError = error;
             const retryable = error.networkError || (error.status && (error.status === 429 || error.status >= 500));
             if (attempt < maxRetries && retryable) {
-                console.log(`::warning::Exchange attempt ${attempt + 1} failed (HTTP ${error.status}): ${error.message}`);
+                const statusInfo = error.status ? `HTTP ${error.status}` : 'network error';
+                console.log(`::warning::Exchange attempt ${attempt + 1} failed (${statusInfo}): ${error.message}`);
             } else {
                 throw error;
             }
         }
     }
-
-    throw lastError;
 }
 
 async function exchangeOidcForCredential(site, exchange, oidcToken) {
