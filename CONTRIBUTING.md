@@ -44,3 +44,15 @@ Triaging issues is a great way to contribute to an open source project. Some act
 - Trying to reproduce the issue. If you can reproduce the issue following the steps the reporter provided, add a comment specifying that you could reproduce the issue.
 - Finding duplicates. If there is a bug, there might be a chance that it was already reported in a different issue. If you find an already reported issue that is the same one as the one you are triaging, add a comment with "Duplicate of" followed by the issue number of the original one.
 - Asking the reporter for more information if needed. Sometimes the reporter of an issue doesn’t include enough information to work on the fix, i.e. lack of steps to reproduce, not specifying the affected version, etc. If you find a bug that doesn’t have enough information, add a comment tagging the reporter asking for the missing information.
+
+## Releasing a new action version
+
+In the current repository root: 
+- Pull latest changes in main
+- Create and push a semver tag
+
+```bash
+git checkout main && git pull
+git tag v1.2.0
+git push origin v1.2.0
+```
