@@ -9,7 +9,13 @@
 const fs = require('fs');
 
 async function fetchJson(url, options = {}) {
-    const response = await fetch(url, options);
+    let response;
+    try {
+        response = await fetch(url, options);
+    } catch (error) {
+        error.networkError = true;
+        throw error;
+    }
 
     if (!response.ok) {
         const errorBody = await response.text();
@@ -79,8 +85,11 @@ async function exchangeWithRetries(site, exchange, oidcToken, retryConfig) {
             return await exchangeOidcForCredential(site, exchange, oidcToken);
         } catch (error) {
             lastError = error;
-            if (attempt < maxRetries) {
-                console.log(`::warning::Exchange attempt ${attempt + 1} failed: ${error.message}`);
+            const retryable = error.networkError || (error.status && (error.status === 429 || error.status >= 500));
+            if (attempt < maxRetries && retryable) {
+                console.log(`::warning::Exchange attempt ${attempt + 1} failed (HTTP ${error.status}): ${error.message}`);
+            } else {
+                throw error;
             }
         }
     }
