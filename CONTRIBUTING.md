@@ -50,9 +50,15 @@ Triaging issues is a great way to contribute to an open source project. Some act
 In the current repository root: 
 - Pull latest changes in main
 - Create and push a semver tag
+- Create and push the `v1` tag
+- Release the new action version
 
 ```bash
+TAG=vX.Y.Z
 git checkout main && git pull
-git tag v1.2.0
-git push origin v1.2.0
+git tag $TAG
+git push origin $TAG
+git tag -f v1
+git push -f origin v1
+gh release create $TAG --generate-notes
 ```
